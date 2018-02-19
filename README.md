@@ -34,11 +34,15 @@ In this version the following variables are returned by the dynamic inventory as
 * location
 * device_ip
 * software
+* role
+* platformId
+* series
+* family
 
-Following versions will also return *platform* as a variable. This would be useful for other ansible-modules like the ones from ntc-ansible.
 
 ## miscellaneous
 * this version doesnt return devices which have no location set in APIC-EM
+* this version returns all of the devices (currently the API returns only 500, because of that this version makes multiple API calls).
 
 ## license
 This project is published with the <a href="https://opensource.org/licenses/MIT" target="_blank">MIT license</a>. So feel free to use the code in your own projects.
