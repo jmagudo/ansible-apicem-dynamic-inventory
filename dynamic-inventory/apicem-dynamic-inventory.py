@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 '''
-Example custom dynamic inventory script for Ansible, in Python.
+APIC-EM dynamic inventory
 '''
 
 import os
@@ -39,11 +39,11 @@ class Connection(object):
 
 
     def aaaLogin(self):
-        """ 
+        """
         Logon the controller, need to pass the userid and password, and in return we get a token.
         Do not know how long the token is valid. An example in cURL is
-         $ curl -k -H "Content-Type: application/json" 
-                   -X POST -d '{"username": "<username>", "password": "<password>"}' 
+         $ curl -k -H "Content-Type: application/json"
+                   -X POST -d '{"username": "<username>", "password": "<password>"}'
                    https://<controller-ip>/api/v1/ticket
         """
 
@@ -51,7 +51,7 @@ class Connection(object):
         DATA = {"username": self.username, "password": self.password}
         try:
             r = requests.post(URL, data=json.dumps(DATA), headers=self.HEADER, verify=False)
-        except requests.ConnectionError as e: 
+        except requests.ConnectionError as e:
             return (False, str(e))
         else:
             content = json.loads(r.content)
@@ -68,7 +68,7 @@ class Connection(object):
         """
          Issue an HTTP GET base on the URL passed as an argument and example in cURL is:
 
-         $ curl -k -H "X-Auth-Token: <your-ticket>" 
+         $ curl -k -H "X-Auth-Token: <your-ticket>"
                    https://<controller-ip>/api/v1/network-device/count
         """
         URL = "%s%s%s" % (self.transport, self.controllername, URL)
@@ -127,7 +127,7 @@ def get_discovered_devices(cntrl):
 
         For information on the response body, see the API documentation on the APIC-EM device
         https://<apic-em>/swagger#!/network-device/getAllNetworkDevice
-        Only return devices that are reachable. 
+        Only return devices that are reachable.
     """
     # dictionary for the complete result
     result = { }
@@ -151,24 +151,32 @@ def get_discovered_devices(cntrl):
             pass
 
     # query APIC-EM for devices
-    status, response = cntrl.genericGET("/api/v1/network-device", scope="ALL")
-    for device in response:
-        try:
-            if device["reachabilityStatus"] == "Reachable":
-                hostvars[device["hostname"]] = { }
-                facts = {'device_ip': device["managementIpAddress"],
-                         'macAddress': device["macAddress"],
-                         'upTime': device["upTime"],
-                         'bootDateTime': device["bootDateTime"],
-                         'location': device["locationName"],
-                         'software': device["softwareVersion"]
-                        }
-                hostvars[device["hostname"]].update(facts)
-                # add device to location if set
-                if device["locationName"] in locations_list:
-                    locations[device["locationName"]]["hosts"].append(device["hostname"])
-        except KeyError:
-            pass
+    status, count = cntrl.genericGET("/api/v1/network-device/count", scope="ALL")
+
+    for npass in xrange(1, count, 500):
+        URL = "/api/v1/network-device/%s/500" % (npass)
+        status, response = cntrl.genericGET(URL, scope="ALL")
+        for device in response:
+            try:
+                if device["reachabilityStatus"] == "Reachable":
+                    hostvars[device["hostname"]] = { }
+                    facts = {'device_ip': device["managementIpAddress"],
+                            'macAddress': device["macAddress"],
+                            'upTime': device["upTime"],
+                            'bootDateTime': device["bootDateTime"],
+                            'location': device["locationName"],
+                            'software': device["softwareVersion"],
+                            'role': device["role"],
+                            'platformId': device["platformId"],
+                            'series': device["series"],
+                            'family': device["family"]
+                            }
+                    hostvars[device["hostname"]].update(facts)
+                    # add device to location if set
+                    if device["locationName"] in locations_list:
+                        locations[device["locationName"]]["hosts"].append(device["hostname"])
+            except KeyError:
+                pass
 
     # Logout from APIC-EM
     cntrl.logoff()
